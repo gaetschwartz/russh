@@ -1403,7 +1403,12 @@ impl Session {
             };
 
             self.flush()?;
-            map_err!(self.common.packet_writer.flush_into(stream_write).await)?;
+            crate::flush_or_timeout(
+                &mut self.common.packet_writer,
+                stream_write,
+                inactivity_timer.as_mut(),
+            )
+            .await?;
 
             if let Some(ref mut enc) = self.common.encrypted {
                 if let EncryptedState::InitCompression = enc.state {

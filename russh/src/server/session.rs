@@ -697,12 +697,12 @@ impl Session {
                 }
                 if drained > 0 {
                     self.flush()?;
-                    map_err!(
-                        self.common
-                            .packet_writer
-                            .flush_into(&mut stream_write)
-                            .await
-                    )?;
+                    crate::flush_or_timeout(
+                        &mut self.common.packet_writer,
+                        &mut stream_write,
+                        inactivity_timer.as_mut(),
+                    )
+                    .await?;
                 }
                 // A drained Disconnect sets this; don't block in `select!` after.
                 if self.common.disconnected {
@@ -787,12 +787,12 @@ impl Session {
             }
             self.flush()?;
 
-            map_err!(
-                self.common
-                    .packet_writer
-                    .flush_into(&mut stream_write)
-                    .await
-            )?;
+            crate::flush_or_timeout(
+                &mut self.common.packet_writer,
+                &mut stream_write,
+                inactivity_timer.as_mut(),
+            )
+            .await?;
 
             if self.common.received_data {
                 // Reset the number of failed keepalive attempts. We don't
@@ -826,14 +826,22 @@ impl Session {
             if let Some((stream_read, buffer, opening_cipher)) = is_reading.take() {
                 reading.set(start_reading(stream_read, buffer, opening_cipher));
             }
-            match (&mut reading).await {
-                Ok((0, _, _, _)) => break,
-                Ok((_, r, b, opening_cipher)) => {
-                    is_reading = Some((r, b, opening_cipher));
+            tokio::select! {
+                r = &mut reading => match r {
+                    Ok((0, _, _, _)) => break,
+                    Ok((_, r, b, opening_cipher)) => {
+                        is_reading = Some((r, b, opening_cipher));
+                    }
+                    // at this stage of session shutdown, EOF is not unexpected
+                    Err(Error::IO(ref e)) if e.kind() == ErrorKind::UnexpectedEof => break,
+                    Err(e) => return Err(e.into()),
+                },
+                // The client was told to disconnect and never closed its side;
+                // dropping the stream closes it for them.
+                () = &mut inactivity_timer => {
+                    debug!("timeout waiting for the client to close");
+                    break;
                 }
-                // at this stage of session shutdown, EOF is not unexpected
-                Err(Error::IO(ref e)) if e.kind() == ErrorKind::UnexpectedEof => break,
-                Err(e) => return Err(e.into()),
             }
         }
 
