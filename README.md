@@ -1,9 +1,6 @@
 # Russh
 
-[![Rust](https://github.com/warp-tech/russh/actions/workflows/rust.yml/badge.svg)](https://github.com/warp-tech/russh/actions/workflows/rust.yml)  <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-91-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
-[![Crate](https://img.shields.io/crates/v/russh.svg)](https://crates.io/crates/russh)
+[![Crate](https://img.shields.io/crates/v/russh.svg)](https://crates.io/crates/russh) 
 [![Docs](https://docs.rs/russh/badge.svg)](https://docs.rs/russh)
 
 A low-level, `async` SSH 2.0 client and server library for Rust / Tokio.
