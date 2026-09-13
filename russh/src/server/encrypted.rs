@@ -658,7 +658,9 @@ mod tests {
 
     fn test_auth_encrypted() -> Encrypted {
         Encrypted {
-            state: EncryptedState::WaitingAuthRequest(AuthRequest::server(MethodSet::server_supported())),
+            state: EncryptedState::WaitingAuthRequest(AuthRequest::server(
+                MethodSet::server_supported(),
+            )),
             exchange: Some(Exchange::default()),
             kex: KEXES.get(&KEX_NONE).expect("none kex").make(),
             key: 0,
@@ -1236,6 +1238,7 @@ impl Session {
                 map_err!(ensure_end(r))?;
                 let target = self.target_window_size;
 
+                #[allow(clippy::collapsible_if)]
                 if let Some(ref mut enc) = self.common.encrypted {
                     if enc.adjust_window_size(channel_num, &data, target)? {
                         let window = handler.adjust_window(channel_num, self.target_window_size);
@@ -1284,13 +1287,11 @@ impl Session {
                 let is_rekeying = self.kex.active();
                 let common = &mut self.common;
                 if let Some(enc) = common.encrypted.as_mut() {
-                    new_size -= enc
-                        .flush_pending_with_writer(
-                            &mut common.packet_writer,
-                            channel_num,
-                            is_rekeying,
-                        )?
-                        as u32;
+                    new_size -= enc.flush_pending_with_writer(
+                        &mut common.packet_writer,
+                        channel_num,
+                        is_rekeying,
+                    )? as u32;
                 }
                 if let Some(chan) = self.channels.get(&channel_num) {
                     chan.window_size().update(new_size).await;
@@ -1346,10 +1347,10 @@ impl Session {
                 let channel_num = map_err!(ChannelId::decode(r))?;
                 let req_type = map_err!(String::decode(r))?;
                 let wants_reply = map_err!(u8::decode(r))?;
-                if let Some(ref mut enc) = self.common.encrypted {
-                    if let Some(channel) = enc.channels.get_mut(&channel_num) {
-                        channel.wants_reply = wants_reply != 0;
-                    }
+                if let Some(ref mut enc) = self.common.encrypted
+                    && let Some(channel) = enc.channels.get_mut(&channel_num)
+                {
+                    channel.wants_reply = wants_reply != 0;
                 }
                 if !self.common.is_established_channel(channel_num) {
                     // Request for a channel that was never opened (or whose open
